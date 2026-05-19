@@ -8,10 +8,16 @@ export function ExportButton({
   campaignId,
   campaignName,
   selectedCount,
+  domainIds,
 }: {
   campaignId: string;
   campaignName: string;
   selectedCount: number;
+  // Restricts the export to these domain IDs. When omitted, the route falls
+  // back to exporting every included Selection in the DB. Shortlist passes
+  // the IDs of the currently visible+selected rows so the export honours
+  // the dedupe filter ("what you see is what you export").
+  domainIds?: string[];
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +28,14 @@ export function ExportButton({
     setError(null);
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/campaigns/${campaignId}/export`);
+        const url = new URL(
+          `/api/campaigns/${campaignId}/export`,
+          window.location.origin
+        );
+        if (domainIds && domainIds.length > 0) {
+          url.searchParams.set("domainIds", domainIds.join(","));
+        }
+        const res = await fetch(url.toString());
         if (!res.ok) {
           const body = await res.json().catch(() => ({ error: "Export failed" }));
           setError(body.error ?? `HTTP ${res.status}`);

@@ -6,16 +6,30 @@ import { buildCampaignWorkbook } from "@/lib/xlsx/export";
 import { log } from "@/lib/log";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   ctx: RouteContext<"/api/campaigns/[id]/export">
 ) {
   const { id } = await ctx.params;
+
+  // Optional client-supplied filter — restricts the export to the
+  // currently visible selections (Shortlist sends visible+selected IDs
+  // so dedupe-hidden rows don't sneak into the workbook).
+  const idsParam = req.nextUrl.searchParams.get("domainIds");
+  const filterDomainIds = idsParam
+    ? idsParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
 
   const campaign = await prisma.campaign.findUnique({
     where: { id },
     include: {
       selections: {
-        where: { included: true },
+        where: {
+          included: true,
+          ...(filterDomainIds ? { domainId: { in: filterDomainIds } } : {}),
+        },
         include: {
           domain: true,
         },

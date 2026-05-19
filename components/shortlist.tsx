@@ -9,6 +9,7 @@ import {
   toggleSelection,
 } from "@/app/actions/toggle-selection";
 import { Button } from "@/components/ui/button";
+import { ExportButton } from "@/components/export-button";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 
 export interface ShortlistRow {
@@ -39,6 +40,7 @@ type Limit = (typeof LIMIT_OPTIONS)[number];
 
 export function Shortlist({
   campaignId,
+  campaignName,
   brief,
   rows,
   totalQualified,
@@ -46,6 +48,7 @@ export function Shortlist({
   configVersion,
 }: {
   campaignId: string;
+  campaignName: string;
   brief: { budgetPerLink: number; linkCountGoal: number };
   rows: ShortlistRow[];
   totalQualified: number;
@@ -103,16 +106,24 @@ export function Shortlist({
   }
 
   // ---------- Derived totals ----------
-  // Totals always reflect what's visible in the current view, so toggling
-  // dedupe gives consistent "what you see is what you count" semantics.
+  // "What you see is what you export": totals + checkboxes + Export button
+  // all derive from `visibleSelections`, which honours the dedupe filter.
+  // Hidden-but-included rows are surfaced via `hiddenSelectedCount` so the
+  // user can decide whether to flip dedupe off and manage them.
   const visible = dedupedRows.slice(0, limit);
-  const selectedAcrossAll = useMemo(
+
+  const allSelections = useMemo(
+    () => rows.filter((r) => selections[r.domainId]),
+    [rows, selections]
+  );
+  const visibleSelections = useMemo(
     () => dedupedRows.filter((r) => selections[r.domainId]),
     [dedupedRows, selections]
   );
+  const hiddenSelectedCount = allSelections.length - visibleSelections.length;
 
-  const linksSelected = selectedAcrossAll.length;
-  const budgetSpent = selectedAcrossAll.reduce(
+  const linksSelected = visibleSelections.length;
+  const budgetSpent = visibleSelections.reduce(
     (sum, r) => sum + (effectivePrice(r) ?? 0),
     0
   );
@@ -121,12 +132,14 @@ export function Shortlist({
   const avgDR =
     linksSelected > 0
       ? Math.round(
-          selectedAcrossAll.reduce(
+          visibleSelections.reduce(
             (s, r) => s + (r.domainRating ?? 0),
             0
           ) / linksSelected
         )
       : 0;
+
+  const visibleSelectedIds = visibleSelections.map((r) => r.domainId);
 
   return (
     <div className="space-y-4">
@@ -176,6 +189,19 @@ export function Shortlist({
           value={avgDR > 0 ? String(avgDR) : "—"}
         />
       </div>
+
+      {/* ---------- Hidden-selection notice ---------- */}
+      {hiddenSelectedCount > 0 && (
+        <div className="rounded-lg border border-warn/40 bg-warn-soft px-4 py-2 text-xs text-warn">
+          <strong className="font-semibold">
+            {hiddenSelectedCount} selected{" "}
+            {hiddenSelectedCount === 1 ? "row is" : "rows are"} hidden by
+            dedupe.
+          </strong>{" "}
+          They&apos;re excluded from the totals and the export. Turn off{" "}
+          <em>Dedupe by domain</em> to view and manage them.
+        </div>
+      )}
 
       {/* ---------- Controls ---------- */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -239,6 +265,12 @@ export function Shortlist({
           >
             Excluded ({formatNumber(totalDisqualified)}) →
           </Link>
+          <ExportButton
+            campaignId={campaignId}
+            campaignName={campaignName}
+            selectedCount={linksSelected}
+            domainIds={visibleSelectedIds}
+          />
         </div>
       </div>
 

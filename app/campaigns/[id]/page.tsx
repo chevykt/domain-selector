@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { ExportButton } from "@/components/export-button";
 import { InventoryUpload } from "@/components/inventory-upload";
 import { ScoreButton } from "@/components/score-button";
 import { Shortlist, type ShortlistRow } from "@/components/shortlist";
@@ -67,10 +66,9 @@ export default async function CampaignPage(
     teamNotes?: string;
   };
 
-  const [qualifiedCount, disqualifiedCount, selectedCount] = await Promise.all([
+  const [qualifiedCount, disqualifiedCount] = await Promise.all([
     prisma.score.count({ where: { campaignId: id, disqualified: false } }),
     prisma.score.count({ where: { campaignId: id, disqualified: true } }),
-    prisma.selection.count({ where: { campaignId: id, included: true } }),
   ]);
 
   const scored = await prisma.score.findMany({
@@ -256,16 +254,12 @@ export default async function CampaignPage(
             </div>
             <div className="flex items-center gap-2">
               <ScoreButton campaignId={id} label="Re-score" variant="secondary" />
-              <ExportButton
-                campaignId={id}
-                campaignName={campaign.name}
-                selectedCount={selectedCount}
-              />
             </div>
           </section>
 
           <Shortlist
             campaignId={id}
+            campaignName={campaign.name}
             brief={{
               budgetPerLink: brief.budgetPerLink,
               linkCountGoal: brief.linkCountGoal,
