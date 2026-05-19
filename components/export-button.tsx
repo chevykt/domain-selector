@@ -50,7 +50,7 @@ export function ExportButton({
         document.body.appendChild(a);
         a.click();
         a.remove();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(downloadurl);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Download failed");
       }
