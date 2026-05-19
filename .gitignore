@@ -32,6 +32,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# prisma
+/prisma/migrations/dev.db*
+
+# user-shared inputs (CSVs, templates, scoring docs) — never commit client/vendor data
+/.private/
+/uploads/
 
 # vercel
 .vercel

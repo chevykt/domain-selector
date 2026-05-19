@@ -1,0 +1,297 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { Badge } from "@/components/ui/badge";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { ExportButton } from "@/components/export-button";
+import { InventoryUpload } from "@/components/inventory-upload";
+import { ScoreButton } from "@/components/score-button";
+import { Shortlist, type ShortlistRow } from "@/components/shortlist";
+import { ANCHOR_STRATEGY_OPTIONS } from "@/lib/brief/schema";
+import { prisma } from "@/lib/db";
+import { formatNumber } from "@/lib/utils";
+
+// Cap how many scored rows we ship to the client. Limit selector tops at 100,
+// so 200 gives headroom and includes any selected-but-out-of-view rows.
+const TOP_N_SERVER = 200;
+
+const STATUS: Record<
+  string,
+  { label: string; tone: "neutral" | "accent" | "success" | "warn" }
+> = {
+  DRAFT: { label: "Brief saved", tone: "neutral" },
+  INVENTORY_LOADED: { label: "Inventory loaded", tone: "accent" },
+  SCORED: { label: "Shortlist ready", tone: "success" },
+  FINALIZED: { label: "Exported", tone: "warn" },
+};
+
+const ANCHOR_LABEL: Record<string, string> = Object.fromEntries(
+  ANCHOR_STRATEGY_OPTIONS.map((o) => [o.value, o.label])
+);
+
+const LINK_TYPE_LABEL: Record<string, string> = {
+  GP: "Guest Post",
+  LI: "Niche Edit",
+  LE: "Link Exchange",
+};
+
+export default async function CampaignPage(
+  props: PageProps<"/campaigns/[id]">
+) {
+  const { id } = await props.params;
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id },
+    include: {
+      inventoryUpload: true,
+      configVersion: true,
+    },
+  });
+  if (!campaign) notFound();
+
+  const brief = campaign.brief as {
+    clientName: string;
+    niches: string[];
+    targetPages: { url: string; keyword: string }[];
+    budgetPerLink: number;
+    geoFocus: string;
+    followPreference: string;
+    minDR: number;
+    minTraffic: number;
+    linkCountGoal: number;
+    industryProfile: string;
+    excludedNiches?: string[];
+    competitorBlocklist?: string[];
+    linkTypes?: string[];
+    anchorStrategy?: string;
+    teamNotes?: string;
+  };
+
+  const [qualifiedCount, disqualifiedCount, selectedCount] = await Promise.all([
+    prisma.score.count({ where: { campaignId: id, disqualified: false } }),
+    prisma.score.count({ where: { campaignId: id, disqualified: true } }),
+    prisma.selection.count({ where: { campaignId: id, included: true } }),
+  ]);
+
+  const scored = await prisma.score.findMany({
+    where: { campaignId: id, disqualified: false },
+    orderBy: [{ total: "desc" }, { computedAt: "asc" }],
+    take: TOP_N_SERVER,
+    include: {
+      domain: {
+        include: {
+          selections: { where: { campaignId: id } },
+        },
+      },
+    },
+  });
+
+  const shortlistRows: ShortlistRow[] = scored.map((s) => ({
+    domainId: s.domainId,
+    domain: s.domain.domain,
+    total: s.total,
+    maxPossible: s.maxPossible,
+    reasoning: s.reasoning,
+    breakdown: s.breakdown as ShortlistRow["breakdown"],
+    domainRating: s.domain.domainRating,
+    traffic: s.domain.traffic,
+    geo: s.domain.geo,
+    gpPrice: s.domain.gpPrice,
+    liPrice: s.domain.liPrice,
+    isFree: s.domain.isFree,
+    tat: s.domain.tat,
+    linkType: s.domain.linkType,
+    contactEmail: s.domain.contactEmail,
+    redFlags: s.domain.redFlags,
+    initiallyIncluded: s.domain.selections[0]?.included ?? false,
+  }));
+
+  const status = STATUS[campaign.status] ?? {
+    label: campaign.status,
+    tone: "neutral" as const,
+  };
+
+  const hasInventory = !!campaign.inventoryUpload;
+  const isScored =
+    campaign.status === "SCORED" || campaign.status === "FINALIZED";
+
+  return (
+    <main className="mx-auto max-w-7xl px-6 py-10">
+      <nav className="mb-4 text-sm">
+        <Link
+          href="/"
+          className="text-fg-muted transition-colors hover:text-fg-strong"
+        >
+          ← Back to campaigns
+        </Link>
+      </nav>
+
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="mb-2 text-xs uppercase tracking-wider text-fg-subtle">
+            {campaign.industryProfile.replace("_", " ")} profile · created{" "}
+            {campaign.createdAt.toLocaleString()}
+            {campaign.configVersion && (
+              <> · scored against config v{campaign.configVersion.versionNumber}</>
+            )}
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-fg-strong">
+            {campaign.name}
+          </h1>
+        </div>
+        <Badge tone={status.tone}>{status.label}</Badge>
+      </header>
+
+      {/* ---------- Brief summary ---------- */}
+      <section className="mb-6 grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader title="Brief" />
+          <CardBody>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
+              <SummaryRow label="Niches">{brief.niches.join(", ")}</SummaryRow>
+              <SummaryRow label="Budget / link">${brief.budgetPerLink}</SummaryRow>
+              <SummaryRow label="Link goal">{brief.linkCountGoal}</SummaryRow>
+              <SummaryRow label="Geo">{brief.geoFocus}</SummaryRow>
+              <SummaryRow label="Follow">{brief.followPreference}</SummaryRow>
+              <SummaryRow label="Min DR">{brief.minDR}</SummaryRow>
+              <SummaryRow label="Min traffic">
+                {brief.minTraffic.toLocaleString()}
+              </SummaryRow>
+              <SummaryRow label="Anchor strategy">
+                {ANCHOR_LABEL[brief.anchorStrategy ?? ""] ?? "—"}
+              </SummaryRow>
+              {brief.linkTypes && brief.linkTypes.length > 0 && (
+                <SummaryRow label="Link types">
+                  {brief.linkTypes.map((t) => LINK_TYPE_LABEL[t] ?? t).join(", ")}
+                </SummaryRow>
+              )}
+              {brief.excludedNiches && brief.excludedNiches.length > 0 && (
+                <SummaryRow label="Excluded">
+                  {brief.excludedNiches.join(", ")}
+                </SummaryRow>
+              )}
+              {brief.competitorBlocklist &&
+                brief.competitorBlocklist.length > 0 && (
+                  <SummaryRow label="Blocked sites">
+                    {brief.competitorBlocklist.join(", ")}
+                  </SummaryRow>
+                )}
+            </dl>
+            {brief.teamNotes && (
+              <div className="mt-4 rounded-md border border-border-subtle bg-bg-input/40 p-3 text-xs text-fg-muted">
+                <div className="mb-1 text-[10px] uppercase tracking-wider text-fg-subtle">
+                  Notes
+                </div>
+                <div className="whitespace-pre-wrap text-fg-default">
+                  {brief.teamNotes}
+                </div>
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title={`Target pages (${brief.targetPages.length})`}
+          />
+          <CardBody>
+            <ul className="space-y-3 text-sm">
+              {brief.targetPages.map((p, i) => (
+                <li
+                  key={i}
+                  className="rounded-md border border-border-subtle bg-bg-input/40 p-3"
+                >
+                  <div className="break-all font-medium text-fg-default">
+                    {p.url}
+                  </div>
+                  <div className="mt-1 text-xs text-fg-muted">
+                    keyword:{" "}
+                    <span className="font-mono text-accent">{p.keyword}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardBody>
+        </Card>
+      </section>
+
+      {/* ---------- Inventory step ---------- */}
+      <section className="mb-6">
+        <InventoryUpload
+          campaignId={id}
+          existingFilename={campaign.inventoryUpload?.originalFilename}
+          existingRowCount={campaign.inventoryUpload?.rowCount}
+          existingSkippedRows={campaign.inventoryUpload?.skippedHeaderRows}
+        />
+      </section>
+
+      {/* ---------- Score step ---------- */}
+      {hasInventory && !isScored && (
+        <section className="mb-6">
+          <Card>
+            <CardHeader
+              step="B"
+              title="Score the inventory"
+              description="Runs the deterministic scoring engine against every uploaded domain using the active config. Same brief + same inventory + same config always produces the same shortlist."
+            />
+            <CardBody>
+              <ScoreButton campaignId={id} label="Run scoring" />
+            </CardBody>
+          </Card>
+        </section>
+      )}
+
+      {/* ---------- Shortlist ---------- */}
+      {isScored && (
+        <>
+          <section className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-fg-strong">
+                Shortlist
+              </h2>
+              <p className="mt-0.5 text-sm text-fg-muted">
+                {formatNumber(qualifiedCount)} qualified ·{" "}
+                {formatNumber(disqualifiedCount)} disqualified
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <ScoreButton campaignId={id} label="Re-score" variant="secondary" />
+              <ExportButton
+                campaignId={id}
+                campaignName={campaign.name}
+                selectedCount={selectedCount}
+              />
+            </div>
+          </section>
+
+          <Shortlist
+            campaignId={id}
+            brief={{
+              budgetPerLink: brief.budgetPerLink,
+              linkCountGoal: brief.linkCountGoal,
+            }}
+            rows={shortlistRows}
+            totalQualified={qualifiedCount}
+            totalDisqualified={disqualifiedCount}
+            configVersion={campaign.configVersion?.versionNumber ?? 0}
+          />
+        </>
+      )}
+    </main>
+  );
+}
+
+function SummaryRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <dt className="text-fg-subtle">{label}</dt>
+      <dd className="text-right font-medium text-fg-default">{children}</dd>
+    </>
+  );
+}

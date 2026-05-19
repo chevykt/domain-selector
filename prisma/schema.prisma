@@ -1,0 +1,171 @@
+// Domain Selector — Prisma schema
+// Versioned config + reproducible scoring via Campaign.configVersionId snapshot
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+// Prisma 7: connection URL lives in prisma.config.ts (for migrate) and is
+// passed via @prisma/adapter-pg at runtime (in lib/db.ts).
+datasource db {
+  provider = "postgresql"
+}
+
+enum IndustryProfile {
+  SAAS
+  ECOMMERCE
+  FINTECH
+  LOCAL_SERVICES
+}
+
+enum LinkPreference {
+  DOFOLLOW
+  NOFOLLOW
+  EITHER
+}
+
+enum CampaignStatus {
+  DRAFT             // brief created, no inventory yet
+  INVENTORY_LOADED  // CSV uploaded and parsed
+  SCORED            // shortlist computed
+  FINALIZED         // user selected + exported
+}
+
+// ---------- Campaign & inputs ----------
+
+model Campaign {
+  id              String          @id @default(cuid())
+  name            String          // client name on brief
+  brief           Json            // full brief: niche keywords, target pages, budget, geo, follow pref, mins, link goal
+  industryProfile IndustryProfile
+  status          CampaignStatus  @default(DRAFT)
+
+  // Snapshot pointer: campaign was scored against this exact config version (null until scored)
+  configVersionId Int?
+  configVersion   ConfigVersion?  @relation(fields: [configVersionId], references: [id])
+
+  inventoryUpload InventoryUpload?
+  scores          Score[]
+  selections      Selection[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  scoredAt        DateTime?
+}
+
+model InventoryUpload {
+  id                String   @id @default(cuid())
+  campaignId        String   @unique
+  campaign          Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  originalFilename  String
+  rowCount          Int      // count of actual domain rows (after header skip)
+  skippedHeaderRows Int      // summary rows we skipped at top
+  rawCsv            String   // retained for re-parse on schema change
+  uploadedAt        DateTime @default(now())
+  domains           Domain[]
+}
+
+// ---------- Inventory rows ----------
+
+model Domain {
+  id                String          @id @default(cuid())
+  inventoryUploadId String
+  inventoryUpload   InventoryUpload @relation(fields: [inventoryUploadId], references: [id], onDelete: Cascade)
+
+  // Canonical normalized fields mapped from the BlueTree vendor inventory CSV.
+  // Field names in the CSV: Domain, DR, UR, Traffic, Country.Traffic, Niche,
+  // Main, Complementary, Indirect, GP Price, LI Price, Link Type, TAT, Red Flags,
+  // Ranking, Contact, etc. UR / Traffic Value / etc. live in rawData.
+  domain        String
+  domainRating  Int?     // DR
+  traffic       Int?     // monthly organic traffic
+  geo           String?  // country code parsed from "Country. Traffic" e.g. "us"
+  gpPrice       Float?   // Guest Post price ($); null when "-" / "Waiting" / "?" / "Free"
+  liPrice       Float?   // Link Insertion price
+  isFree        Boolean  @default(false) // gp_price == "Free"
+  tat           String?  // turnaround time, raw e.g. "1-2 days"
+  linkType      String?  // LI / GP / LE / GP/LI / etc.
+  ranking       String?  // Good / Okay / Poor (vendor's manual rating)
+  contactEmail  String?  // primary contact (may be comma-separated; we keep first)
+
+  // Niche signal columns (used by scoring engine for niche match)
+  nicheRaw      String?  // raw multi-line "Niche" cell with arrows
+  mainNiche     String?  // "Main" column
+  complementary String?  // "Complementary" column
+  indirect      String?  // "Indirect" column
+
+  redFlags      String[] // parsed list of red flag indicators
+
+  rawData       Json     // full original row, indexed by header name
+  rowIndex      Int      // position in CSV after skipping summary rows
+
+  scores        Score[]
+  selections    Selection[]
+
+  @@index([inventoryUploadId])
+}
+
+// ---------- Scoring output ----------
+
+model Score {
+  id                  String   @id @default(cuid())
+  campaignId          String
+  campaign            Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  domainId            String
+  domain              Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  total               Int      // weighted total
+  maxPossible         Int      // possible max under the active profile
+
+  // Per-dimension: { nicheMatch: { raw, weighted, cap, detail }, domainRating: {...}, ... }
+  breakdown           Json
+
+  disqualified        Boolean  @default(false)
+  disqualifierReasons String[]
+
+  // One-line deterministic summary derived from breakdown
+  reasoning           String
+
+  computedAt          DateTime @default(now())
+
+  @@unique([campaignId, domainId])
+  @@index([campaignId, disqualified, total(sort: Desc)])
+}
+
+// ---------- User include/exclude decisions ----------
+
+model Selection {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  domainId   String
+  domain     Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  included   Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([campaignId, domainId])
+  @@index([campaignId, included])
+}
+
+// ---------- Versioned config ----------
+
+model ConfigVersion {
+  id            Int       @id @default(autoincrement())
+  versionNumber Int       @unique // monotonically increasing, surfaced in admin UI
+  snapshot      Json      // full config: weights, caps, disqualifier rules, industry profiles, LLM prompt strings
+  note          String?   // changelog message for this version
+  createdAt     DateTime  @default(now())
+
+  campaigns     Campaign[]
+  activeAs      ActiveConfig?
+}
+
+// Singleton row (id = "singleton") pointing at the current active config.
+model ActiveConfig {
+  id              String        @id @default("singleton")
+  configVersionId Int           @unique
+  configVersion   ConfigVersion @relation(fields: [configVersionId], references: [id])
+  activatedAt     DateTime      @default(now())
+}

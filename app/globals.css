@@ -1,26 +1,118 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ---------- Design tokens ---------- */
+/* Tailwind v4: @theme tokens become utility classes (e.g. bg-bg-base, text-fg-muted).
+   Color palette mirrors the BlueTree onboarding tool — near-black surfaces,
+   cyan accent, generous spacing. */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Surfaces */
+  --color-bg-base: #0a0a0c;
+  --color-bg-surface: #111114;
+  --color-bg-elevated: #16161b;
+  --color-bg-hover: #1c1c24;
+  --color-bg-input: #0f0f13;
+
+  /* Borders */
+  --color-border-subtle: #1f1f28;
+  --color-border-default: #2a2a36;
+  --color-border-strong: #3a3a48;
+
+  /* Foreground */
+  --color-fg-strong: #fafafa;
+  --color-fg-default: #e4e4e7;
+  --color-fg-muted: #a1a1aa;
+  --color-fg-subtle: #71717a;
+  --color-fg-disabled: #52525b;
+
+  /* Brand / accents */
+  --color-accent: #06b6d4; /* cyan-500 */
+  --color-accent-hover: #0891b2; /* cyan-600 */
+  --color-accent-soft: rgba(6, 182, 212, 0.12);
+  --color-accent-fg: #ffffff;
+
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.12);
+  --color-warn: #f59e0b;
+  --color-warn-soft: rgba(245, 158, 11, 0.12);
+  --color-danger: #f43f5e;
+  --color-danger-soft: rgba(244, 63, 94, 0.12);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---------- Base styles ---------- */
+
+html,
+body {
+  background: var(--color-bg-base);
+  color: var(--color-fg-default);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+/* Cleaner focus ring across the app */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Native form controls — keep dark */
+select,
+input,
+textarea {
+  color-scheme: dark;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-fg-strong);
+}
+
+/* Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Number inputs — hide spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
