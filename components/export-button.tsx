@@ -42,9 +42,9 @@ export function ExportButton({
           return;
         }
         const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
+        const downloadurl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
+        a.href = downloadurl;
         const safe = campaignName.replace(/[^A-Za-z0-9_-]+/g, "_");
         a.download = `${safe || "campaign"}_export.xlsx`;
         document.body.appendChild(a);
