@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BackLink } from "@/components/ui/back-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { DeleteCampaignButton } from "@/components/delete-campaign-button";
 import { InventoryUpload } from "@/components/inventory-upload";
 import { ScoreButton } from "@/components/score-button";
 import { ScoringInProgress } from "@/components/scoring-in-progress";
@@ -290,6 +291,26 @@ export default async function CampaignPage(
           />
         </>
       )}
+
+      {/* Danger zone — bottom of the page, deliberately small + inline so
+          it doesn't compete with the primary workflow controls. */}
+      <section className="mt-12 border-t border-border-subtle pt-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+              Danger zone
+            </h2>
+            <p className="mt-1 text-sm text-fg-muted">
+              Permanently delete this campaign and everything it owns
+              (inventory rows, scores, selections). Cannot be undone.
+            </p>
+          </div>
+          <DeleteCampaignButton
+            campaignId={id}
+            campaignName={campaign.name}
+          />
+        </div>
+      </section>
     </main>
   );
 }
