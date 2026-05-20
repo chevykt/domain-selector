@@ -2,6 +2,13 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/* Field — accessible form field wrapper.
+   - Labels are Title Case, normal weight, fg-default for clear scan
+     (was tracking-wide uppercase muted — failed WCAG and looked cramped)
+   - Helper/hint text uses fg-muted (#c1c2c8 = 9:1 on bg-surface, AAA)
+   - Errors use danger (with role=alert announced to AT)
+*/
+
 export function Label({
   htmlFor,
   required,
@@ -17,12 +24,19 @@ export function Label({
     <label
       htmlFor={htmlFor}
       className={cn(
-        "block text-xs font-medium uppercase tracking-wide text-fg-muted",
+        "block text-sm font-medium text-fg-default",
         className
       )}
     >
       {children}
-      {required && <span className="ml-1 text-danger">*</span>}
+      {required && (
+        <span
+          aria-label="required"
+          className="ml-1 text-danger"
+        >
+          *
+        </span>
+      )}
     </label>
   );
 }
@@ -52,20 +66,17 @@ export function Field({
         </Label>
       )}
       {children}
-      {(hint || error) && (
+      {error && (
         <p
-          className={cn(
-            "text-xs leading-relaxed",
-            error ? "text-danger" : "text-fg-subtle"
-          )}
+          role="alert"
+          className="text-xs leading-relaxed text-danger"
         >
-          {error ?? hint}
+          {error}
         </p>
+      )}
+      {!error && hint && (
+        <p className="text-xs leading-relaxed text-fg-muted">{hint}</p>
       )}
     </div>
   );
-}
-
-export function FieldHint({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-fg-subtle">{children}</p>;
 }

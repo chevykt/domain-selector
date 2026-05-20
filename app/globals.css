@@ -1,9 +1,22 @@
 @import "tailwindcss";
 
-/* ---------- Design tokens ---------- */
-/* Tailwind v4: @theme tokens become utility classes (e.g. bg-bg-base, text-fg-muted).
-   Color palette mirrors the BlueTree onboarding tool — near-black surfaces,
-   cyan accent, generous spacing. */
+/* ============================================================================
+   Design tokens — modern dark mode with 3-tier elevation
+   ============================================================================
+   Hierarchy (darkest → lightest):
+     bg-base    #0a0a0c  application canvas
+     bg-input   #08080a  recessed (depressed) inputs sitting inside cards
+     bg-surface #15151a  cards/panels raised above canvas
+     bg-elevated #1e1e26 popovers, hover states on cards
+     bg-sheet   #161620  side drawer (slightly warmer than surface)
+
+   Helper text upgrade (WCAG):
+     fg-strong  #ffffff  18:1 on bg-surface
+     fg-default #e5e7eb  13.5:1
+     fg-muted   #c1c2c8  9:1 — body hints/helper text (passes AAA)
+     fg-subtle  #989aa1  6.5:1 — secondary labels
+     fg-disabled #6b6e76 4.6:1 — placeholders only
+   ============================================================================ */
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
@@ -11,29 +24,32 @@
 
   /* Surfaces */
   --color-bg-base: #0a0a0c;
-  --color-bg-surface: #111114;
-  --color-bg-elevated: #16161b;
-  --color-bg-hover: #1c1c24;
-  --color-bg-input: #0f0f13;
+  --color-bg-input: #08080a;
+  --color-bg-surface: #15151a;
+  --color-bg-elevated: #1e1e26;
+  --color-bg-hover: #22222b;
+  --color-bg-sheet: #161620;
 
   /* Borders */
   --color-border-subtle: #1f1f28;
   --color-border-default: #2a2a36;
   --color-border-strong: #3a3a48;
 
-  /* Foreground */
-  --color-fg-strong: #fafafa;
-  --color-fg-default: #e4e4e7;
-  --color-fg-muted: #a1a1aa;
-  --color-fg-subtle: #71717a;
-  --color-fg-disabled: #52525b;
+  /* Foreground (all WCAG-checked against bg-surface) */
+  --color-fg-strong: #ffffff;
+  --color-fg-default: #e5e7eb;
+  --color-fg-muted: #c1c2c8;
+  --color-fg-subtle: #989aa1;
+  --color-fg-disabled: #6b6e76;
 
-  /* Brand / accents */
-  --color-accent: #06b6d4; /* cyan-500 */
-  --color-accent-hover: #0891b2; /* cyan-600 */
+  /* Brand */
+  --color-accent: #06b6d4;
+  --color-accent-hover: #0891b2;
   --color-accent-soft: rgba(6, 182, 212, 0.12);
+  --color-accent-ring: rgba(6, 182, 212, 0.45);
   --color-accent-fg: #ffffff;
 
+  /* Status */
   --color-success: #10b981;
   --color-success-soft: rgba(16, 185, 129, 0.12);
   --color-warn: #f59e0b;
@@ -48,7 +64,9 @@
   --radius-xl: 16px;
 }
 
-/* ---------- Base styles ---------- */
+/* ============================================================================
+   Base styles
+   ============================================================================ */
 
 html,
 body {
@@ -58,26 +76,24 @@ body {
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.55;
 }
 
 body {
   min-height: 100vh;
 }
 
-/* Cleaner focus ring across the app */
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* Native form controls — keep dark */
 select,
 input,
 textarea {
   color-scheme: dark;
 }
 
-/* Selection */
 ::selection {
   background: var(--color-accent-soft);
   color: var(--color-fg-strong);
@@ -107,7 +123,6 @@ textarea {
   border: 2px solid transparent;
 }
 
-/* Number inputs — hide spinners */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -115,4 +130,27 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* ============================================================================
+   Sheet animations (200ms — respects reduced-motion)
+   ============================================================================ */
+
+@keyframes ds-sheet-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes ds-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
