@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +21,7 @@ export function ExportButton({
   // the dedupe filter ("what you see is what you export").
   domainIds?: string[];
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +54,10 @@ export function ExportButton({
         a.click();
         a.remove();
         URL.revokeObjectURL(downloadurl);
+
+        // The export route flips status SCORED → FINALIZED on first
+        // successful export. Refresh so the badge updates.
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Download failed");
       }
@@ -70,9 +77,20 @@ export function ExportButton({
             : undefined
         }
       >
-        {pending ? "Generating…" : `Export XLSX (${selectedCount})`}
+        {pending ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            Generating…
+          </>
+        ) : (
+          `Export XLSX (${selectedCount})`
+        )}
       </Button>
-      {error && <div className="text-sm text-danger">{error}</div>}
+      {error && (
+        <div role="alert" className="text-sm text-danger">
+          {error}
+        </div>
+      )}
     </div>
   );
 }

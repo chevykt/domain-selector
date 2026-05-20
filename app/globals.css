@@ -145,6 +145,28 @@ input[type="number"] {
   to { opacity: 1; }
 }
 
+/* Plain CSS classes (not Tailwind utilities) so they're always included
+   regardless of arbitrary-value class parsing quirks. */
+.ds-sheet-in {
+  animation: ds-sheet-in-right 220ms ease-out;
+  will-change: transform;
+}
+.ds-overlay-in {
+  animation: ds-overlay-in 180ms ease-out;
+}
+
+/* Skeleton shimmer for loading.tsx pages */
+@keyframes ds-skeleton-shimmer {
+  0% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.5; }
+}
+.ds-skeleton {
+  background-color: var(--color-bg-elevated);
+  border-radius: 6px;
+  animation: ds-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

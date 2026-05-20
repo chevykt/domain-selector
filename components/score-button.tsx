@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import { scoreCampaign } from "@/app/actions/score-campaign";
 import { Button } from "@/components/ui/button";
@@ -43,10 +44,6 @@ export function ScoreButton({
           setError(r.error);
         }
       } catch (err) {
-        // Server action threw or the function execution timed out at the
-        // platform layer (Vercel kills functions past maxDuration). Detect
-        // the timeout pattern so we can give the user a useful message
-        // rather than React's generic "unexpected response" wrapper.
         const msg = err instanceof Error ? err.message : String(err);
         const isTimeout =
           msg.includes("504") ||
@@ -54,12 +51,8 @@ export function ScoreButton({
           msg.toLowerCase().includes("an unexpected response");
         if (isTimeout) {
           setError(
-            "Scoring took longer than the function budget allows. The run may have completed server-side — refresh the page in a moment to check. If it didn't, the inventory is likely too large for this plan and we'll need to extend the Vercel function timeout (Pro) or move scoring to a background job."
+            "Scoring took longer than the function budget allows. Refresh the page in a moment — the run may have completed server-side."
           );
-          // Force a refresh so the page reads the current campaign status,
-          // which will be either SCORED (if the tx committed before the
-          // platform killed us) or back to INVENTORY_LOADED (if the catch
-          // block in scoreCampaign released the lock).
           router.refresh();
         } else {
           setError(msg);
@@ -68,15 +61,39 @@ export function ScoreButton({
     });
   }
 
+  // When pending, show a prominent loading panel instead of just a tiny
+  // "Scoring…" button label. This is what users actually see during the
+  // 5-10s scoring window — the server-side SCORING_IN_PROGRESS state
+  // doesn't reach the client mid-action (revalidatePath only fires after
+  // the action returns), so the client has to draw its own loading UI.
+  if (pending) {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex items-start gap-3 rounded-lg border border-accent/40 bg-accent-soft/50 px-4 py-3"
+      >
+        <Loader2
+          className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-accent"
+          aria-hidden
+        />
+        <div className="min-w-0">
+          <div className="text-sm font-medium text-fg-strong">
+            Scoring in progress…
+          </div>
+          <div className="mt-0.5 text-xs text-fg-muted">
+            Running the deterministic engine across every domain. This usually
+            takes 5–15 seconds.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      <Button
-        type="button"
-        onClick={run}
-        disabled={pending}
-        variant={variant}
-      >
-        {pending ? "Scoring…" : label}
+      <Button type="button" onClick={run} variant={variant}>
+        {label}
       </Button>
       {error && (
         <div role="alert" className="text-sm text-danger">

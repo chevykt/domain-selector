@@ -22,16 +22,14 @@ export const SheetContent = React.forwardRef<
   <Dialog.Portal>
     <Dialog.Overlay
       className={cn(
-        "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm",
-        "[animation:ds-overlay-in_180ms_ease-out]"
+        "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm ds-overlay-in"
       )}
     />
     <Dialog.Content
       ref={ref}
       className={cn(
         "fixed right-0 top-0 z-50 flex h-full w-full max-w-md flex-col",
-        "border-l border-border-default bg-bg-sheet shadow-2xl",
-        "[animation:ds-sheet-in-right_220ms_ease-out]",
+        "border-l border-border-default bg-bg-sheet shadow-2xl ds-sheet-in",
         className
       )}
       {...props}

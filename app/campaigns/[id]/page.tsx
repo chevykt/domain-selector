@@ -20,6 +20,11 @@ const TOP_N_SERVER = 200;
 // (scoring + Score writes). Hobby Plan allows up to 60s.
 export const maxDuration = 60;
 
+// Always re-fetch on revalidate / router.refresh. Without this Next can
+// serve a cached render where status hasn't flipped yet (e.g., after
+// scoring or after the export auto-promotes status → FINALIZED).
+export const dynamic = "force-dynamic";
+
 const STATUS: Record<
   string,
   { label: string; tone: "neutral" | "accent" | "success" | "warn" }

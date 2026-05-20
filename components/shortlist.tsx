@@ -314,7 +314,7 @@ export function Shortlist({
                   key={r.domainId}
                   onClick={() => setOpenDomainId(r.domainId)}
                   className={cn(
-                    "cursor-pointer transition-colors",
+                    "group cursor-pointer transition-colors",
                     checked
                       ? "bg-accent-soft/30 hover:bg-accent-soft/40"
                       : "hover:bg-bg-hover/60"
@@ -409,10 +409,16 @@ export function Shortlist({
                     )}
                   </td>
                   <td className="px-2 py-2 text-center">
-                    <ChevronRight
+                    <span
+                      className={cn(
+                        "inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-subtle bg-bg-input/40 transition-colors",
+                        "group-hover:border-accent group-hover:bg-accent-soft group-hover:text-accent",
+                        "text-fg-muted"
+                      )}
                       aria-hidden
-                      className="inline h-4 w-4 text-fg-subtle"
-                    />
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </span>
                     <span className="sr-only">Open details for {r.domain}</span>
                   </td>
                 </tr>
