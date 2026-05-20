@@ -9,9 +9,9 @@ import { scoreDomain } from "@/lib/scoring/engine";
 import type { ScoreInput } from "@/lib/scoring/types";
 import { log } from "@/lib/log";
 
-// Vercel function duration cap. Hobby allows up to 60s; this gives ~5x
-// headroom over the worst-case 2,300-row scoring run (~10s end-to-end).
-export const maxDuration = 60;
+// Note: `maxDuration` is configured on app/campaigns/[id]/page.tsx (the page
+// that invokes this action). Route-segment config can't be exported from a
+// `"use server"` file — Next.js requires all exports to be async functions.
 
 export type ScoreCampaignResult =
   | {

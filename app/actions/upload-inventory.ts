@@ -7,10 +7,9 @@ import { parseInventoryCsv } from "@/lib/csv/parser";
 import { CsvParseError } from "@/lib/csv/types";
 import { log } from "@/lib/log";
 
-// Vercel function duration cap. Big inventories (multi-MB CSVs) plus the
-// bulk-insert transaction can run past the default 10s on Hobby. 60s covers
-// the largest realistic vendor exports with margin.
-export const maxDuration = 60;
+// Note: `maxDuration` is configured on app/campaigns/[id]/page.tsx (the page
+// that invokes this action). Route-segment config can't be exported from a
+// `"use server"` file — Next.js requires all exports to be async functions.
 
 export type UploadInventoryResult =
   | {

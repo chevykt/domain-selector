@@ -15,6 +15,11 @@ import { formatNumber } from "@/lib/utils";
 // so 200 gives headroom and includes any selected-but-out-of-view rows.
 const TOP_N_SERVER = 200;
 
+// Vercel function duration cap. Covers the Server Actions that fire from
+// this page: uploadInventory (CSV parse + bulk insert) and scoreCampaign
+// (scoring + Score writes). Hobby Plan allows up to 60s.
+export const maxDuration = 60;
+
 const STATUS: Record<
   string,
   { label: string; tone: "neutral" | "accent" | "success" | "warn" }

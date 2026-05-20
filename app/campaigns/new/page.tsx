@@ -4,6 +4,9 @@ import { BriefForm } from "@/components/brief-form";
 
 export const metadata = { title: "New campaign — Domain Selector" };
 
+// Covers the createCampaign Server Action invoked from the BriefForm.
+export const maxDuration = 60;
+
 export default function NewCampaignPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
