@@ -4,6 +4,8 @@ Internal tool for **BlueTree**. Scores publisher domains from the vendor invento
 
 The reasoning layer is **configurable** and **versioned**: every campaign records the exact `ConfigVersion` it was scored against, so reopening a campaign reproduces the same shortlist verbatim. Scoring is **deterministic** — no LLM in the scoring path.
 
+> 📄 **For reviewers:** see [DECISIONS.md](./DECISIONS.md) — one-page write-up covering stack choice, the UX decisions I'm proudest of, what I cut, and what I'd change with more time.
+
 ## Stack
 
 - **Next.js 16** (App Router, Server Actions, React 19.2)
