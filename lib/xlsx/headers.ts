@@ -59,7 +59,7 @@ export const CM_HEADERS = [
   "GP Doc",
   "Content Status",
   "Payment Invoice",
-  "Vendor Name | (on the invoice)",
+  "Vendor Name (on the invoice)",
   "Request Type",
   "Invoice Link No.",
   "Payment Status",

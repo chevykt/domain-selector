@@ -191,8 +191,10 @@ On Railway: set the build command to `npm install && npm run build` and the star
 
 Standalone scripts you can run against your local DB / inputs:
 
-- `npx tsx scripts/verify-scoring.ts` — asserts framework worked example (82/100).
-- `npx tsx scripts/verify-csv.ts` — parses the real inventory CSV and runs the engine across every row; prints field-coverage, disqualifier breakdown, top 10.
+- `npm run verify:scoring` — asserts the scoring framework's worked example (82/100). Runs the deterministic engine against the canonical input and confirms each of the seven dimensions matches the expected output.
+- `npm run verify:export` — opens `.private/template.xlsx` and asserts every sheet header in `lib/xlsx/headers.ts` matches the template byte-for-byte. Whitespace is normalized (Google-Sheets-exported templates have embedded newlines in multi-line headers). Exits non-zero on any drift. **Run this before any release that touches `lib/xlsx/`.**
+- `npm run verify` — runs both of the above. Wire this into CI before merging to `main`.
+- `npx tsx scripts/verify-csv.ts` — parses the real inventory CSV and runs the engine across every row; prints field-coverage, disqualifier breakdown, top 10. Useful for diagnosing parser changes.
 - `npx tsx scripts/dump-xlsx.ts [path]` — dumps a workbook's sheet structure.
 - `npx tsx scripts/dump-docx.ts [path]` — extracts text from a Word doc.
 
