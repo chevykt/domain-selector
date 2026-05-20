@@ -47,3 +47,27 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI assistant tool directories (skill installs, prompt mirrors, steering files).
+# These get auto-populated by various AI tools (Cursor, Continue, Gemini CLI,
+# Kiro, Roo, Trae, Windsurf, opencode, qoder, codex, codebuddy, copilot) and
+# do not belong in the application repo.
+.agent/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.gemini/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.windsurf/
+.github/prompts/
+
+# Claude project tooling — ignore skill installs and hooks, keep launch.json
+.claude/skills/
+.claude/agents/
+.claude/output-styles/
+.claude/hooks/
