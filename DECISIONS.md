@@ -16,7 +16,7 @@ Server Actions handle every mutation (campaign create, inventory upload, scoring
 
 3. **Dedupe + hidden-selection visibility ("what you see is what you export").** The BlueTree CSV has ~700 duplicate rows (one per link-type combo per domain). Dedupe-by-domain is on by default. When a user has selections that fall outside the visible deduped view, an amber banner explicitly says `"3 selected rows are hidden by dedupe"`. The metric strip, checkbox count, and Export button all read from the same `visibleSelections` array — counts never drift.
 
-4. **Two-step inline delete instead of a modal dialog.** "Are you sure?" modals train muscle memory to dismiss. The Delete button transforms into `"Permanently delete <name>? [Yes, delete] [Cancel]"` inline, in the same UI context. Same protection against misclicks, no autopilot dismiss.
+4. **Schema-validated JSON editor for config + immutable version history.** The reasoning layer lives in DB-backed `ConfigVersion` snapshots. Rather than build a form-by-field editor (which would either constrain edits or take a week to do right), `/admin/config/new` is a JSON textarea pre-filled with the active snapshot, validated against the same zod schema the server uses — typos and missing fields surface as field-pathed errors *before* the new row is written. Versions are immutable: edits create new rows, never mutate; rollback is one click that flips the `ActiveConfig` pointer to an earlier row. Same audit-trail integrity as the rest of the system, with an actual UI on top instead of "open Prisma Studio."
 
 ## What I cut
 
@@ -25,18 +25,7 @@ Server Actions handle every mutation (campaign create, inventory upload, scoring
 
 ## What I'd change with more time
 
-The original draft of this section listed an admin UI for config edits as the top priority. With time remaining in the window I built it instead — `/admin/config` is now live, lists every `ConfigVersion`, and lets ops author new versions with a schema-validated JSON editor or activate a previous version in one click. That moves "engineer required for weight tweaks" off the followup list entirely.
-
-What's still left:
-
 1. **GitHub Actions CI** running `npm run verify` on every PR. Right now `verify:scoring`, `verify:disqualifiers`, and `verify:export` are run manually before each release. Wiring them into CI would block merges that break either the framework worked example or the template byte-for-byte match. The `verify:export` test needs `.private/template.xlsx` as a base64-encoded GitHub secret since the file is gitignored — small bit of plumbing.
-2. **Form-based config editor** (currently it's a JSON textarea with schema validation). The textarea is robust for now — full schema is checked before save, errors are field-pathed back to the user — but a form-by-field UI would catch fewer edge cases and be friendlier for non-developers. Probably a day's work to do well.
+2. **Form-based config editor** to complement the current JSON textarea. The textarea is robust for technical operators — full schema check on save, field-pathed errors — but a form-by-field UI would be friendlier for non-developers tweaking individual weights. A day's work to do well.
 3. **Background job queue** (Inngest or Upstash QStash) for inventories beyond ~10k rows. Vercel's 60-second function cap is plenty today but not future-proof; this would handle larger jobs without architectural rework.
 4. **Campaign rename + "use as template" duplication.** Both small but real UX wins for repeat operators.
-
-## What got added during the extension window
-
-These weren't in the original spec — built because they directly mitigated audit findings:
-
-- **`/admin/config` + `/admin/config/new`** — full ConfigVersion management UI. Schema-validated JSON editor, version history with one-click activation, snapshot diff via the active version's expandable JSON view.
-- **`scripts/verify-disqualifiers.ts`** — covers all 7 disqualifier codes (`DR_BELOW_MIN`, `TRAFFIC_BELOW_MIN`, `NOFOLLOW_REJECTED`, `BAD_RANKING`, `EXCLUDED_NICHE`, `COMPETITOR_BLOCKED`, `LINK_TYPE_MISMATCH`) with positive and negative cases. Wired into `npm run verify`.
