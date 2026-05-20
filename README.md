@@ -153,16 +153,88 @@ Hard disqualifiers (return `null`, excluded from main shortlist):
 
 Verification: `npx tsx scripts/verify-scoring.ts` runs the worked example from the framework doc and asserts the total is 82/100 across all seven dimensions.
 
-## Editing the config
+## Updating the reasoning config
 
-`ConfigVersion` rows are JSONB blobs validated by zod (`lib/config/types.ts`). To roll out a change:
+`ConfigVersion` rows are immutable JSONB snapshots validated by zod (`lib/config/types.ts`). To roll out a change you create a *new* row and repoint `ActiveConfig` at it — no redeploy required, no existing data mutated.
 
-1. Create a new `ConfigVersion` row with a higher `versionNumber` and your edited snapshot.
-2. Update `ActiveConfig.configVersionId` to point at it.
+### Option A — Prisma Studio (no SQL needed)
 
-Existing campaigns continue to display their original scores because they reference the old `ConfigVersion`. Rolling back is a single SQL update on `ActiveConfig.configVersionId`.
+```
+npm run db:studio
+```
 
-(An admin UI for this is intentionally out of scope for v1 — it's a single-row pointer change.)
+1. Open the **ConfigVersion** model in the left sidebar.
+2. Find the currently active version (sorted by `versionNumber` desc). Click **Duplicate record**.
+3. Increment `versionNumber` by 1. Edit the `snapshot` JSON in the modal — adjust weights, caps, disqualifier patterns, profile overrides, prompts, whatever.
+4. Add a `note` describing the change (free-text changelog). **Save**.
+5. Open the **ActiveConfig** model → the singleton row (`id = "singleton"`) → set `configVersionId` to the new ConfigVersion's id → **Save**.
+
+The next scoring run picks up the new config. Existing campaigns continue to display their original scores because each `Campaign.configVersionId` is a hard pointer to the version it was scored against — they're not affected.
+
+### Option B — SQL (Neon's web SQL editor or psql)
+
+Open Neon's project dashboard → **SQL Editor**. Use this template (the example bumps the niche-match cap from 40 to 45 on the SaaS profile):
+
+```sql
+-- 1. Insert a new ConfigVersion, copying the current snapshot and patching
+--    the field(s) you want to change. Replace the jsonb_set call with your
+--    actual edit. Multiple fields = chain jsonb_set calls.
+WITH active AS (
+  SELECT cv.snapshot
+  FROM "ConfigVersion" cv
+  JOIN "ActiveConfig" ac ON ac."configVersionId" = cv.id
+  WHERE ac.id = 'singleton'
+),
+next_version AS (
+  SELECT COALESCE(MAX("versionNumber"), 0) + 1 AS n FROM "ConfigVersion"
+)
+INSERT INTO "ConfigVersion" ("versionNumber", snapshot, note)
+SELECT
+  next_version.n,
+  jsonb_set(active.snapshot, '{profiles,SAAS,caps,nicheMatch}', '45'),
+  'Bumped SaaS niche-match cap from 40 to 45'
+FROM active, next_version
+RETURNING id, "versionNumber";
+
+-- 2. Activate the new version (paste the id returned above)
+UPDATE "ActiveConfig"
+SET "configVersionId" = <id_from_step_1>
+WHERE id = 'singleton';
+```
+
+## Rolling back a config change
+
+Every previous `ConfigVersion` row is preserved forever — they're immutable, so rollback is just repointing `ActiveConfig` at an older row.
+
+### Option A — Prisma Studio
+
+```
+npm run db:studio
+```
+
+1. Open **ConfigVersion**, find the `versionNumber` you want to restore. Copy its `id`.
+2. Open **ActiveConfig** → the singleton row → set `configVersionId` to the copied id → **Save**.
+
+Done. The next scoring run uses the rolled-back config.
+
+### Option B — SQL one-liner
+
+```sql
+UPDATE "ActiveConfig"
+SET "configVersionId" = (
+  SELECT id FROM "ConfigVersion" WHERE "versionNumber" = 2
+)
+WHERE id = 'singleton';
+```
+
+(Replace `2` with whichever version number you're rolling back to.)
+
+### What rollback does NOT touch
+
+- Existing `Campaign.configVersionId` foreign keys — campaigns stay pinned to their original config, so historical shortlists remain reproducible.
+- The rolled-back-from `ConfigVersion` row — still in the table, available to re-activate, never mutated. There's no "delete" path for ConfigVersion rows by design.
+
+> An admin UI at `/admin/config` for non-developer config edits is the natural follow-up — see [DECISIONS.md](./DECISIONS.md). The schema is designed so it's a UI layer on top, not a refactor.
 
 ## Deployment
 
