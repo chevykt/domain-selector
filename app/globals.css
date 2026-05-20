@@ -167,12 +167,14 @@ input[type="number"] {
   animation: ds-skeleton-shimmer 1.6s ease-in-out infinite;
 }
 
+/* Respect reduced-motion preference, but ONLY for transitions (hover
+   effects, layout shifts). Loading indicators — spinners, skeleton
+   shimmers, sheet entry — are functional feedback and must keep
+   animating so users know something is happening. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
 }

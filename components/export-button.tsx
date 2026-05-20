@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -24,11 +24,21 @@ export function ExportButton({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const disabled = selectedCount === 0 || pending;
 
+  // Clear the success message after 5s so the button area doesn't
+  // permanently look "post-export".
+  useEffect(() => {
+    if (!success) return;
+    const t = setTimeout(() => setSuccess(null), 5000);
+    return () => clearTimeout(t);
+  }, [success]);
+
   function downloadXlsx() {
     setError(null);
+    setSuccess(null);
     startTransition(async () => {
       try {
         const url = new URL(
@@ -49,14 +59,18 @@ export function ExportButton({
         const a = document.createElement("a");
         a.href = downloadurl;
         const safe = campaignName.replace(/[^A-Za-z0-9_-]+/g, "_");
-        a.download = `${safe || "campaign"}_export.xlsx`;
+        const filename = `${safe || "campaign"}_export.xlsx`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
         URL.revokeObjectURL(downloadurl);
 
-        // The export route flips status SCORED → FINALIZED on first
-        // successful export. Refresh so the badge updates.
+        // Surface explicit confirmation. The status badge in the page header
+        // will also flip SCORED → "Exported" via router.refresh, but if the
+        // campaign was already FINALIZED nothing visually changes there —
+        // this message is the always-visible confirmation.
+        setSuccess(`Downloaded ${filename}`);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Download failed");
@@ -89,6 +103,15 @@ export function ExportButton({
       {error && (
         <div role="alert" className="text-sm text-danger">
           {error}
+        </div>
+      )}
+      {success && (
+        <div
+          role="status"
+          className="inline-flex items-center gap-1.5 text-sm text-success"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+          <span>{success}</span>
         </div>
       )}
     </div>
