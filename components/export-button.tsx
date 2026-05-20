@@ -71,7 +71,15 @@ export function ExportButton({
         // campaign was already FINALIZED nothing visually changes there —
         // this message is the always-visible confirmation.
         setSuccess(`Downloaded ${filename}`);
-        router.refresh();
+
+        // Defer router.refresh until AFTER this transition resolves.
+        // Next.js wraps router.refresh() in its own internal transition;
+        // if we call it inside our startTransition the local `pending`
+        // state stays true until the route re-fetch completes, leaving
+        // the button stuck on "Generating…" while the success message
+        // is already visible. setTimeout(0) bumps it to the next tick
+        // so the transition resolves first.
+        setTimeout(() => router.refresh(), 0);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Download failed");
       }
