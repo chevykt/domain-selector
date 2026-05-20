@@ -20,13 +20,23 @@ Server Actions handle every mutation (campaign create, inventory upload, scoring
 
 ## What I cut
 
-- **An admin UI for editing config weights.** The spec required versioned, runtime-readable config in the DB — that's done (`ConfigVersion` JSONB snapshots, monotonic `versionNumber`, `ActiveConfig` singleton pointer for one-line SQL rollback). I treated a GUI for editing weights as a follow-up rather than scope creep. Today, ops edits via Prisma Studio or Neon's SQL editor.
 - **LLM enrichment of niche match.** The framework explicitly left this open. The prompt strings are wired into the config but inert. Determinism matters more than a marginal quality lift, and reproducibility was non-negotiable in the spec.
 - **Campaign rename and "use as template" duplication.** Both are low-effort follow-ups; neither was load-bearing for the demo.
 
 ## What I'd change with more time
 
-1. **Admin UI at `/admin/config`** that clones the active snapshot into an editable JSON / form view and writes a new `ConfigVersion` on save. ~3 hours; biggest leverage gain because it removes "engineer required" from the config-update path.
-2. **Per-disqualifier unit tests.** `verify:scoring` covers the worked example end-to-end. The three negative-list disqualifier codes (`EXCLUDED_NICHE`, `COMPETITOR_BLOCKED`, `LINK_TYPE_MISMATCH`) have no regression coverage today. Half a day to fix.
-3. **GitHub Actions CI** running `npm run verify` on every PR — block merge if either the scoring example or the export template-fidelity test fails.
-4. **Background job queue** (Inngest or Upstash QStash) for inventories beyond ~10k rows. Vercel's 60-second function cap is plenty today but not future-proof; this would handle larger jobs without architectural rework.
+The original draft of this section listed an admin UI for config edits as the top priority. With time remaining in the window I built it instead — `/admin/config` is now live, lists every `ConfigVersion`, and lets ops author new versions with a schema-validated JSON editor or activate a previous version in one click. That moves "engineer required for weight tweaks" off the followup list entirely.
+
+What's still left:
+
+1. **GitHub Actions CI** running `npm run verify` on every PR. Right now `verify:scoring`, `verify:disqualifiers`, and `verify:export` are run manually before each release. Wiring them into CI would block merges that break either the framework worked example or the template byte-for-byte match. The `verify:export` test needs `.private/template.xlsx` as a base64-encoded GitHub secret since the file is gitignored — small bit of plumbing.
+2. **Form-based config editor** (currently it's a JSON textarea with schema validation). The textarea is robust for now — full schema is checked before save, errors are field-pathed back to the user — but a form-by-field UI would catch fewer edge cases and be friendlier for non-developers. Probably a day's work to do well.
+3. **Background job queue** (Inngest or Upstash QStash) for inventories beyond ~10k rows. Vercel's 60-second function cap is plenty today but not future-proof; this would handle larger jobs without architectural rework.
+4. **Campaign rename + "use as template" duplication.** Both small but real UX wins for repeat operators.
+
+## What got added during the extension window
+
+These weren't in the original spec — built because they directly mitigated audit findings:
+
+- **`/admin/config` + `/admin/config/new`** — full ConfigVersion management UI. Schema-validated JSON editor, version history with one-click activation, snapshot diff via the active version's expandable JSON view.
+- **`scripts/verify-disqualifiers.ts`** — covers all 7 disqualifier codes (`DR_BELOW_MIN`, `TRAFFIC_BELOW_MIN`, `NOFOLLOW_REJECTED`, `BAD_RANKING`, `EXCLUDED_NICHE`, `COMPETITOR_BLOCKED`, `LINK_TYPE_MISMATCH`) with positive and negative cases. Wired into `npm run verify`.

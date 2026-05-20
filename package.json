@@ -16,8 +16,9 @@
     "db:seed": "tsx --env-file-if-exists=.env.local --env-file-if-exists=.env prisma/seed.ts",
     "deploy:setup": "prisma migrate deploy && tsx --env-file-if-exists=.env prisma/seed.ts",
     "verify:scoring": "tsx scripts/verify-scoring.ts",
+    "verify:disqualifiers": "tsx scripts/verify-disqualifiers.ts",
     "verify:export": "tsx scripts/verify-export-fidelity.ts",
-    "verify": "npm run verify:scoring && npm run verify:export",
+    "verify": "npm run verify:scoring && npm run verify:disqualifiers && npm run verify:export",
     "postinstall": "prisma generate",
     "vercel-build": "prisma migrate deploy && next build"
   },

@@ -157,7 +157,19 @@ Verification: `npx tsx scripts/verify-scoring.ts` runs the worked example from t
 
 `ConfigVersion` rows are immutable JSONB snapshots validated by zod (`lib/config/types.ts`). To roll out a change you create a *new* row and repoint `ActiveConfig` at it — no redeploy required, no existing data mutated.
 
-### Option A — Prisma Studio (no SQL needed)
+### Option A — In the app at `/admin/config` (recommended)
+
+Navigate to **/admin/config** on the live URL. The page lists every `ConfigVersion` with the active one highlighted. Click **+ New Version** to open the editor pre-filled with the active snapshot:
+
+1. Optionally add a **changelog note** (shows up in the version history)
+2. Edit the **snapshot JSON** — adjust weights, caps, disqualifier patterns, profile overrides, prompts
+3. Click **Validate** to dry-run the zod schema against your edit (typos are caught before save)
+4. Choose whether to **activate immediately** on save (checkbox, default on) or stage the version for later activation
+5. Click **Save & Activate** (or **Save Version**)
+
+To activate a previously-saved version (rollback or stage-then-activate): on the **/admin/config** page, click **Activate** next to any inactive version, confirm. Single click, no SQL.
+
+### Option B — Prisma Studio (no SQL needed)
 
 ```
 npm run db:studio
@@ -171,7 +183,7 @@ npm run db:studio
 
 The next scoring run picks up the new config. Existing campaigns continue to display their original scores because each `Campaign.configVersionId` is a hard pointer to the version it was scored against — they're not affected.
 
-### Option B — SQL (Neon's web SQL editor or psql)
+### Option C — SQL (Neon's web SQL editor or psql)
 
 Open Neon's project dashboard → **SQL Editor**. Use this template (the example bumps the niche-match cap from 40 to 45 on the SaaS profile):
 
@@ -206,7 +218,11 @@ WHERE id = 'singleton';
 
 Every previous `ConfigVersion` row is preserved forever — they're immutable, so rollback is just repointing `ActiveConfig` at an older row.
 
-### Option A — Prisma Studio
+### Option A — In the app at `/admin/config`
+
+Open **/admin/config**, find the version you want to restore in the history table, click **Activate** next to it, confirm. Done. The next scoring run uses the rolled-back config; campaigns scored under a different version remain reproducible because each `Campaign.configVersionId` is a hard pointer to the version it was scored against.
+
+### Option B — Prisma Studio
 
 ```
 npm run db:studio
@@ -217,7 +233,7 @@ npm run db:studio
 
 Done. The next scoring run uses the rolled-back config.
 
-### Option B — SQL one-liner
+### Option C — SQL one-liner
 
 ```sql
 UPDATE "ActiveConfig"
@@ -233,8 +249,6 @@ WHERE id = 'singleton';
 
 - Existing `Campaign.configVersionId` foreign keys — campaigns stay pinned to their original config, so historical shortlists remain reproducible.
 - The rolled-back-from `ConfigVersion` row — still in the table, available to re-activate, never mutated. There's no "delete" path for ConfigVersion rows by design.
-
-> An admin UI at `/admin/config` for non-developer config edits is the natural follow-up — see [DECISIONS.md](./DECISIONS.md). The schema is designed so it's a UI layer on top, not a refactor.
 
 ## Deployment
 
@@ -266,8 +280,9 @@ On Railway: set the build command to `npm install && npm run build` and the star
 Standalone scripts you can run against your local DB / inputs:
 
 - `npm run verify:scoring` — asserts the scoring framework's worked example (82/100). Runs the deterministic engine against the canonical input and confirms each of the seven dimensions matches the expected output.
+- `npm run verify:disqualifiers` — covers all 7 disqualifier codes (`DR_BELOW_MIN`, `TRAFFIC_BELOW_MIN`, `NOFOLLOW_REJECTED`, `BAD_RANKING`, `EXCLUDED_NICHE`, `COMPETITOR_BLOCKED`, `LINK_TYPE_MISMATCH`) with positive cases (should disqualify) and a negative case (clean domain should qualify). Exits non-zero on any regression.
 - `npm run verify:export` — opens `.private/template.xlsx` and asserts every sheet header in `lib/xlsx/headers.ts` matches the template byte-for-byte. Whitespace is normalized (Google-Sheets-exported templates have embedded newlines in multi-line headers). Exits non-zero on any drift. **Run this before any release that touches `lib/xlsx/`.**
-- `npm run verify` — runs both of the above. Wire this into CI before merging to `main`.
+- `npm run verify` — runs all three of the above. Wire this into CI before merging to `main`.
 - `npx tsx scripts/verify-csv.ts` — parses the real inventory CSV and runs the engine across every row; prints field-coverage, disqualifier breakdown, top 10. Useful for diagnosing parser changes.
 - `npx tsx scripts/dump-xlsx.ts [path]` — dumps a workbook's sheet structure.
 - `npx tsx scripts/dump-docx.ts [path]` — extracts text from a Word doc.

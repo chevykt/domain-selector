@@ -41,9 +41,17 @@ export default async function HomePage() {
             brief. Build the shortlist, then export the BlueTree CM workbook.
           </p>
         </div>
-        <Link href="/campaigns/new">
-          <Button size="lg">+ New campaign</Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/config"
+            className="text-xs font-medium text-fg-muted transition-colors hover:text-accent"
+          >
+            Admin · Config →
+          </Link>
+          <Link href="/campaigns/new">
+            <Button size="lg">+ New campaign</Button>
+          </Link>
+        </div>
       </header>
 
       {campaigns.length === 0 ? (
