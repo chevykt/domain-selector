@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/ui/back-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { InventoryUpload } from "@/components/inventory-upload";
@@ -128,13 +129,8 @@ export default async function CampaignPage(
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <nav className="mb-4 text-sm">
-        <Link
-          href="/"
-          className="text-fg-muted transition-colors hover:text-fg-strong"
-        >
-          ← Back to campaigns
-        </Link>
+      <nav className="mb-4">
+        <BackLink href="/">Back to campaigns</BackLink>
       </nav>
 
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">

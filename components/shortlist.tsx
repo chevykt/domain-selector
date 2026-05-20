@@ -217,8 +217,10 @@ export function Shortlist({
         />
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+      {/* Controls — sticky so the limit selector + Export remain reachable
+          when the user scrolls down through 50-100 rows. Frosted-glass
+          background sits above the scrolling table behind it. */}
+      <div className="sticky top-2 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-surface/95 px-4 py-2.5 text-sm shadow-lg backdrop-blur supports-[backdrop-filter]:bg-bg-surface/80">
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-fg-muted">Showing top</span>
           <div className="inline-flex overflow-hidden rounded-md border border-border-default bg-bg-surface p-0.5 text-xs">

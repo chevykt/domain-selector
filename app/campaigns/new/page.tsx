@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import { BackLink } from "@/components/ui/back-link";
 import { BriefForm } from "@/components/brief-form";
 
 export const metadata = { title: "New campaign — Domain Selector" };
@@ -10,13 +9,8 @@ export const maxDuration = 60;
 export default function NewCampaignPage() {
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <nav className="mb-6 text-sm">
-        <Link
-          href="/"
-          className="text-fg-muted transition-colors hover:text-fg-strong"
-        >
-          ← Back to campaigns
-        </Link>
+      <nav className="mb-6">
+        <BackLink href="/">Back to campaigns</BackLink>
       </nav>
 
       <header className="mb-8 max-w-3xl">

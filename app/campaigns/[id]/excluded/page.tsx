@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { BackLink } from "@/components/ui/back-link";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/db";
 import { formatNumber } from "@/lib/utils";
@@ -54,13 +55,8 @@ export default async function ExcludedPage(
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <nav className="mb-4 text-sm">
-        <Link
-          href={`/campaigns/${id}`}
-          className="text-fg-muted transition-colors hover:text-fg-strong"
-        >
-          ← Back to campaign
-        </Link>
+      <nav className="mb-4">
+        <BackLink href={`/campaigns/${id}`}>Back to campaign</BackLink>
       </nav>
 
       <header className="mb-6">
