@@ -5,6 +5,10 @@ import { BriefSchema } from "@/lib/brief/schema";
 import { buildCampaignWorkbook } from "@/lib/xlsx/export";
 import { log } from "@/lib/log";
 
+// Building a multi-sheet workbook with 50+ rows can take a few seconds.
+// 60s is well over what we need but leaves headroom for big shortlists.
+export const maxDuration = 60;
+
 export async function GET(
   req: NextRequest,
   ctx: RouteContext<"/api/campaigns/[id]/export">

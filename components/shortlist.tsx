@@ -300,7 +300,7 @@ export function Shortlist({
               <Th className="w-24 text-right">Price</Th>
               <Th className="w-16">TAT</Th>
               <Th className="w-14">Link</Th>
-              <Th className="w-10 text-center">!</Th>
+              <Th className="w-40">Flags</Th>
               <Th className="w-10" />
             </tr>
           </thead>
@@ -340,6 +340,14 @@ export function Shortlist({
                   <td className="min-w-0 px-3 py-2">
                     <div className="truncate font-medium text-fg-strong">
                       {r.domain}
+                    </div>
+                    {/* Inline reasoning — spec requires breakdown visible per row.
+                       Click row for full per-dimension drill-down in the Sheet. */}
+                    <div
+                      className="mt-0.5 truncate text-[11px] text-fg-muted"
+                      title={r.reasoning}
+                    >
+                      {r.reasoning}
                     </div>
                     {r.contactEmail && (
                       <div className="mt-0.5 flex items-center gap-1 text-[11px] text-fg-subtle">
@@ -382,15 +390,20 @@ export function Shortlist({
                   <td className="px-2 py-2 text-xs text-fg-muted">
                     {r.linkType ?? "—"}
                   </td>
-                  <td className="px-2 py-2 text-center">
+                  <td className="max-w-[180px] px-2 py-2 text-xs">
                     {r.redFlags.length > 0 ? (
-                      <span
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-warn-soft text-warn"
-                        title={r.redFlags.join(", ")}
-                        aria-label={`${r.redFlags.length} red flag${r.redFlags.length === 1 ? "" : "s"}`}
-                      >
-                        <AlertTriangle className="h-3 w-3" aria-hidden />
-                      </span>
+                      <div className="flex items-start gap-1 text-warn">
+                        <AlertTriangle
+                          className="mt-0.5 h-3 w-3 shrink-0"
+                          aria-hidden
+                        />
+                        <span
+                          className="truncate"
+                          title={r.redFlags.join(", ")}
+                        >
+                          {r.redFlags.join(", ")}
+                        </span>
+                      </div>
                     ) : (
                       <span className="text-fg-subtle">—</span>
                     )}

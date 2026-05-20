@@ -198,6 +198,23 @@ Standalone scripts you can run against your local DB / inputs:
 
 ## Notes on the BT template
 
-The provided XLSX is a Google-Sheets-exported file with `IMPORTRANGE` formulas that reference external sheets. Those formulas don't execute in real Excel; our export writes computed values directly to those cells so the file opens cleanly. Column count and header strings match the template exactly (39 columns on the CM tab including 4 trailing empty headers and the final `Hash` column).
+### Tab count: 4 sheets exported
 
-The `Referring Domains - <client>` sheet is included with the standard header row but left empty — it's typically imported separately from Ahrefs / SEMrush after a campaign launches.
+The spec calls for "4 tabs" and we ship exactly four:
+
+| # | Sheet | Visibility | Columns | Populated |
+|---|---|---|---|---|
+| 1 | `Client Info` | visible | 22 | yes — one row per campaign with brief metadata |
+| 2 | `CM` | visible | 39 | yes — one row per selected domain |
+| 3 | `__CM_HISTORY` | hidden | 13 | header only (consumed by BlueTree's downstream CM tooling) |
+| 4 | `__CM_STATE` | hidden | 10 | header only (consumed by BlueTree's downstream CM tooling) |
+
+The `Referring Domains - <client>` sheet from the BlueTree template is intentionally **omitted** — it carries per-client Ahrefs backlink data that's imported by a different pipeline post-launch, not by this tool. Re-add it if your workflow needs the placeholder by importing `REFERRING_DOMAINS_HEADERS` from `lib/xlsx/headers.ts` (still exported for that purpose).
+
+### CM tab column count: 39, not 32
+
+The spec quoted "32 cols with static values" — that was an approximation. The actual BlueTree template has 39 physical columns: 33 named content cells + 4 trailing empty filler cells + `Hash`. We match the template byte-for-byte (header strings, ordering, the four empty headers, the final `Hash`) so the file is schema-compatible with the BlueTree CM workflow downstream. `lib/xlsx/headers.ts` is the source of truth.
+
+### Formulas vs. static values
+
+The provided template was exported from Google Sheets and contains `IMPORTRANGE` + `__xludf.DUMMYFUNCTION` formulas that don't execute in Excel. Our export writes the **computed values** directly into those cells (DR, Traffic, Order Price, DB Price, Can Use, TAT, Profit) so the file opens cleanly in Excel and Numbers. This matches the spec's "static values" requirement.

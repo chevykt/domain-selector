@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { InventoryUpload } from "@/components/inventory-upload";
 import { ScoreButton } from "@/components/score-button";
+import { ScoringInProgress } from "@/components/scoring-in-progress";
 import { Shortlist, type ShortlistRow } from "@/components/shortlist";
 import { ANCHOR_STRATEGY_OPTIONS } from "@/lib/brief/schema";
 import { prisma } from "@/lib/db";
@@ -20,6 +21,7 @@ const STATUS: Record<
 > = {
   DRAFT: { label: "Brief saved", tone: "neutral" },
   INVENTORY_LOADED: { label: "Inventory loaded", tone: "accent" },
+  SCORING_IN_PROGRESS: { label: "Scoring…", tone: "accent" },
   SCORED: { label: "Shortlist ready", tone: "success" },
   FINALIZED: { label: "Exported", tone: "warn" },
 };
@@ -110,6 +112,7 @@ export default async function CampaignPage(
   };
 
   const hasInventory = !!campaign.inventoryUpload;
+  const isScoring = campaign.status === "SCORING_IN_PROGRESS";
   const isScored =
     campaign.status === "SCORED" || campaign.status === "FINALIZED";
 
@@ -223,8 +226,18 @@ export default async function CampaignPage(
         />
       </section>
 
-      {/* ---------- Score step ---------- */}
-      {hasInventory && !isScored && (
+      {/* ---------- Scoring-in-progress card (polls every 3s) ---------- */}
+      {isScoring && campaign.inventoryUpload && (
+        <section className="mb-6">
+          <ScoringInProgress
+            startedAt={campaign.updatedAt}
+            inventoryCount={campaign.inventoryUpload.rowCount}
+          />
+        </section>
+      )}
+
+      {/* ---------- Score step (only when idle, not in-progress) ---------- */}
+      {hasInventory && !isScored && !isScoring && (
         <section className="mb-6">
           <Card>
             <CardHeader

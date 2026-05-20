@@ -26,10 +26,11 @@ enum LinkPreference {
 }
 
 enum CampaignStatus {
-  DRAFT             // brief created, no inventory yet
-  INVENTORY_LOADED  // CSV uploaded and parsed
-  SCORED            // shortlist computed
-  FINALIZED         // user selected + exported
+  DRAFT                // brief created, no inventory yet
+  INVENTORY_LOADED     // CSV uploaded and parsed
+  SCORING_IN_PROGRESS  // scoreCampaign action is running (lock for idempotency)
+  SCORED               // shortlist computed
+  FINALIZED            // user selected + exported
 }
 
 // ---------- Campaign & inputs ----------

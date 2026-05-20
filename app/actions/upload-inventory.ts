@@ -7,6 +7,11 @@ import { parseInventoryCsv } from "@/lib/csv/parser";
 import { CsvParseError } from "@/lib/csv/types";
 import { log } from "@/lib/log";
 
+// Vercel function duration cap. Big inventories (multi-MB CSVs) plus the
+// bulk-insert transaction can run past the default 10s on Hobby. 60s covers
+// the largest realistic vendor exports with margin.
+export const maxDuration = 60;
+
 export type UploadInventoryResult =
   | {
       ok: true;

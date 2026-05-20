@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "CampaignStatus" ADD VALUE 'SCORING_IN_PROGRESS';

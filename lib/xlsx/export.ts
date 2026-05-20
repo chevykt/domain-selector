@@ -9,7 +9,6 @@ import {
   CM_HEADERS,
   CM_HISTORY_HEADERS,
   CM_STATE_HEADERS,
-  REFERRING_DOMAINS_HEADERS,
 } from "./headers";
 
 const ANCHOR_LABEL: Record<string, string> = Object.fromEntries(
@@ -159,6 +158,8 @@ export async function buildCampaignWorkbook(
   ]);
 
   // ---------- Hidden bookkeeping sheets (empty, matching the template) ----------
+  // These two stay so the file remains schema-compatible with the BlueTree
+  // CM workflow that consumes the export downstream.
   const cmHistory = wb.addWorksheet("__CM_HISTORY", { state: "hidden" });
   cmHistory.addRow([...CM_HISTORY_HEADERS]);
   cmHistory.getRow(1).font = { bold: true };
@@ -167,12 +168,11 @@ export async function buildCampaignWorkbook(
   cmState.addRow([...CM_STATE_HEADERS]);
   cmState.getRow(1).font = { bold: true };
 
-  // ---------- Referring Domains placeholder ----------
-  const refSheetName = `Referring Domains - ${data.brief.clientName}`
-    .substring(0, 31); // Excel sheet name limit
-  const refDomains = wb.addWorksheet(refSheetName);
-  refDomains.addRow([...REFERRING_DOMAINS_HEADERS]);
-  refDomains.getRow(1).font = { bold: true };
+  // NOTE: the per-client "Referring Domains - <client>" sheet from the
+  // BlueTree template has been intentionally omitted. The spec says "4 tabs"
+  // and we don't populate this sheet (per-client backlink data is imported
+  // separately from Ahrefs after launch). The REFERRING_DOMAINS_HEADERS
+  // constant remains in headers.ts for ops teams that want to re-add it.
 
   // ---------- Encode ----------
   const buf = await wb.xlsx.writeBuffer();
