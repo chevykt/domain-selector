@@ -25,7 +25,7 @@ Server Actions handle every mutation (campaign create, inventory upload, scoring
 
 ## What I'd change with more time
 
-1. **GitHub Actions CI** running `npm run verify` on every PR. Right now `verify:scoring`, `verify:disqualifiers`, and `verify:export` are run manually before each release. Wiring them into CI would block merges that break either the framework worked example or the template byte-for-byte match. The `verify:export` test needs `.private/template.xlsx` as a base64-encoded GitHub secret since the file is gitignored — small bit of plumbing.
-2. **Form-based config editor** to complement the current JSON textarea. The textarea is robust for technical operators — full schema check on save, field-pathed errors — but a form-by-field UI would be friendlier for non-developers tweaking individual weights. A day's work to do well.
-3. **Background job queue** (Inngest or Upstash QStash) for inventories beyond ~10k rows. Vercel's 60-second function cap is plenty today but not future-proof; this would handle larger jobs without architectural rework.
-4. **Campaign rename + "use as template" duplication.** Both small but real UX wins for repeat operators.
+1. **Form-based config editor** to complement the current JSON textarea. The textarea is robust for technical operators — full schema check on save, field-pathed errors — but a form-by-field UI would be friendlier for non-developers tweaking individual weights. A day's work to do well.
+2. **Background job queue** (Inngest or Upstash QStash) for inventories beyond ~10k rows. Vercel's 60-second function cap is plenty today but not future-proof; this would handle larger jobs without architectural rework.
+3. **Campaign rename + "use as template" duplication.** Both small but real UX wins for repeat operators.
+4. **Observability** — Sentry for error capture + a `/admin/health` endpoint reporting DB connectivity, active config version, last scoring run. Tells you something's wrong before the client does.

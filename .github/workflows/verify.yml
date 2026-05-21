@@ -1,0 +1,61 @@
+# Quality gate: runs the two pure verify scripts on every push to main
+# and every pull request.
+#
+#   - verify:scoring       — asserts the framework worked example (82/100)
+#                            across all 7 dimensions
+#   - verify:disqualifiers — covers all 7 disqualifier codes with positive
+#                            + negative cases
+#
+# verify:export is intentionally NOT in CI. That script reads
+# .private/template.xlsx (gitignored, ~565 KB, contains client data) and
+# asserts header byte-for-byte match against lib/xlsx/headers.ts. Its
+# real value is local drift-detection when BlueTree ships a new template;
+# in CI it would either need the template hosted as a giant secret (over
+# GitHub's 64 KB per-secret cap) or compared against a frozen fixture
+# (which just tests that code matches itself). Neither is worth the
+# complexity. Run `npm run verify:export` locally before any release
+# that touches lib/xlsx/.
+
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same branch so we don't queue up a backlog
+# when commits land in quick succession.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Scoring + disqualifier tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # `npm ci` runs the `postinstall` hook which runs `prisma generate`.
+      # Prisma's `defineConfig` in prisma.config.ts falls back to a
+      # placeholder DATABASE_URL when no env is present, so generate
+      # succeeds without DB credentials. The verify scripts themselves
+      # never connect to the DB — they're pure functions over fixtures.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify scoring engine (worked example)
+        run: npm run verify:scoring
+
+      - name: Verify disqualifier engine (7 codes)
+        run: npm run verify:disqualifiers

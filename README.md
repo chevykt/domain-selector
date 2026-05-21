@@ -1,5 +1,7 @@
 # Domain Selector
 
+[![Verify](https://github.com/chevykt/domain-selector/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/chevykt/domain-selector/actions/workflows/verify.yml)
+
 Internal tool for **BlueTree**. Scores publisher domains from the vendor inventory CSV against a client brief, surfaces the top-N shortlist with include/exclude controls, and exports a Campaign Management XLSX matching the BT template.
 
 The reasoning layer is **configurable** and **versioned**: every campaign records the exact `ConfigVersion` it was scored against, so reopening a campaign reproduces the same shortlist verbatim. Scoring is **deterministic** — no LLM in the scoring path.
@@ -282,7 +284,23 @@ Standalone scripts you can run against your local DB / inputs:
 - `npm run verify:scoring` — asserts the scoring framework's worked example (82/100). Runs the deterministic engine against the canonical input and confirms each of the seven dimensions matches the expected output.
 - `npm run verify:disqualifiers` — covers all 7 disqualifier codes (`DR_BELOW_MIN`, `TRAFFIC_BELOW_MIN`, `NOFOLLOW_REJECTED`, `BAD_RANKING`, `EXCLUDED_NICHE`, `COMPETITOR_BLOCKED`, `LINK_TYPE_MISMATCH`) with positive cases (should disqualify) and a negative case (clean domain should qualify). Exits non-zero on any regression.
 - `npm run verify:export` — opens `.private/template.xlsx` and asserts every sheet header in `lib/xlsx/headers.ts` matches the template byte-for-byte. Whitespace is normalized (Google-Sheets-exported templates have embedded newlines in multi-line headers). Exits non-zero on any drift. **Run this before any release that touches `lib/xlsx/`.**
-- `npm run verify` — runs all three of the above. Wire this into CI before merging to `main`.
+- `npm run verify` — runs all three of the above. Two of them (`scoring` and `disqualifiers`) are also wired into CI.
+
+## CI
+
+The `Verify` workflow at [`.github/workflows/verify.yml`](./.github/workflows/verify.yml) runs on every push to `main` and every pull request:
+
+- ✅ **`verify:scoring`** — pure code test, runs in CI
+- ✅ **`verify:disqualifiers`** — pure code test, runs in CI
+- ⚙️ **`verify:export`** — local-only, NOT in CI
+
+`verify:export` is deliberately excluded from CI because it reads `.private/template.xlsx` (gitignored, ~565 KB, contains client data). Hosting the file as a GitHub Actions secret would require splitting across many secrets (single-secret cap is 64 KB) or comparing against a frozen fixture (which just tests that code matches itself — pointless). The script's real value is **local drift-detection** when BlueTree ships a new template version. Run it manually before any release that touches `lib/xlsx/`:
+
+```
+npm run verify:export
+```
+
+If you forget, the worst case is a header mismatch that only ships to ops, who'll notice and report it. The CI tests catch the much more common regression class (scoring engine edits).
 - `npx tsx scripts/verify-csv.ts` — parses the real inventory CSV and runs the engine across every row; prints field-coverage, disqualifier breakdown, top 10. Useful for diagnosing parser changes.
 - `npx tsx scripts/dump-xlsx.ts [path]` — dumps a workbook's sheet structure.
 - `npx tsx scripts/dump-docx.ts [path]` — extracts text from a Word doc.
