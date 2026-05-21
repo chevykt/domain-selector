@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
@@ -35,11 +36,11 @@ export default function GlobalError({
         <Button type="button" onClick={reset}>
           Try again
         </Button>
-        <a href="/">
+        <Link href="/">
           <Button type="button" variant="secondary">
             Back to campaigns
           </Button>
-        </a>
+        </Link>
       </div>
     </main>
   );

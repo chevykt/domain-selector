@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
@@ -20,7 +20,11 @@ export function ScoringInProgress({
   inventoryCount: number;
 }) {
   const router = useRouter();
+  // Hold "now" in state so render stays pure (no Date.now() during render).
+  // Initialized from the startedAt prop, then synced to the real clock on mount.
+  const [now, setNow] = useState(() => startedAt.getTime());
 
+  // Poll the server every 3s; status flips to SCORED when scoring finishes.
   useEffect(() => {
     const interval = setInterval(() => {
       router.refresh();
@@ -28,7 +32,15 @@ export function ScoringInProgress({
     return () => clearInterval(interval);
   }, [router]);
 
-  const secondsAgo = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+  // Tick the elapsed-time display every second. setNow is only called inside
+  // the interval callback (never synchronously in the effect body), so render
+  // stays pure and we avoid cascading renders.
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const secondsAgo = Math.max(0, Math.floor((now - startedAt.getTime()) / 1000));
 
   return (
     <Card>
