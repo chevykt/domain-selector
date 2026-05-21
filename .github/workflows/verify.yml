@@ -1,6 +1,11 @@
-# Quality gate: runs the two pure verify scripts on every push to main
-# and every pull request.
+# Quality gate: runs on every push to main and every pull request.
 #
+#   - typecheck            — `tsc --noEmit`. Catches type errors against the
+#                            generated Prisma client (npm ci's postinstall
+#                            runs `prisma generate` first, so the client is
+#                            fresh — this is what catches stale-enum drift).
+#   - lint                 — `eslint`. Catches Next.js/React rule violations
+#                            (e.g. <a> vs <Link>, impure render calls).
 #   - verify:scoring       — asserts the framework worked example (82/100)
 #                            across all 7 dimensions
 #   - verify:disqualifiers — covers all 7 disqualifier codes with positive
@@ -32,7 +37,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Scoring + disqualifier tests
+    name: Typecheck, lint, scoring + disqualifier tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -53,6 +58,12 @@ jobs:
       # never connect to the DB — they're pure functions over fixtures.
       - name: Install dependencies
         run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
 
       - name: Verify scoring engine (worked example)
         run: npm run verify:scoring
