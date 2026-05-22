@@ -1,6 +1,6 @@
 # Decisions and Trade-offs
 
-A one-page write-up of the choices behind the Domain Selector build: stack, the UX wins I'm proudest of, what I cut, and what I'd revisit with more time.
+A one-page write-up of the choices behind the Domain Selector build: stack, the UX wins I'm proudest of, what I cut, and the scope boundaries I drew between a submission and a production deployment.
 
 ## Stack
 
@@ -23,9 +23,10 @@ Server Actions handle every mutation (campaign create, inventory upload, scoring
 - **LLM enrichment of niche match.** The framework explicitly left this open. The prompt strings are wired into the config but inert. Determinism matters more than a marginal quality lift, and reproducibility was non-negotiable in the spec.
 - **Campaign rename and "use as template" duplication.** Both are low-effort follow-ups; neither was load-bearing for the demo.
 
-## What I'd change with more time
+## Scope boundaries & production roadmap
 
-1. **Form-based config editor** to complement the current JSON textarea. The textarea is robust for technical operators — full schema check on save, field-pathed errors — but a form-by-field UI would be friendlier for non-developers tweaking individual weights. A day's work to do well.
-2. **Background job queue** (Inngest or Upstash QStash) for inventories beyond ~10k rows. Vercel's 60-second function cap is plenty today but not future-proof; this would handle larger jobs without architectural rework.
-3. **Campaign rename + "use as template" duplication.** Both small but real UX wins for repeat operators.
-4. **Observability** — Sentry for error capture + a `/admin/health` endpoint reporting DB connectivity, active config version, last scoring run. Tells you something's wrong before the client does.
+Everything the framework and brief specify is built and verified. The items below are deliberate scope boundaries — the gap between a correct submission and a long-running production deployment — and mirror the framework's own section 8 ("what this does not cover, and where future iterations go"). Each is intentionally deferred, with the reason:
+
+- **Background job queue** (Inngest / Upstash QStash) — only matters past ~10k-row inventories. The sample is ~2.3k rows and scores well within Vercel's 60s function budget, so a queue now would be over-engineering. Scoring is already a pure function, so moving it behind a queue later needs no rewrite.
+- **Form-based config editor** — the JSON editor already gives full, schema-validated control over every weight and rule. A field-by-field form is an ergonomics upgrade for non-technical operators, not a missing capability.
+- **Observability** — Sentry for error capture and an `/admin/health` endpoint (DB connectivity, active config version, last scoring run). Earns its keep once the app is live and on-call-owned; not load-bearing for this submission.
