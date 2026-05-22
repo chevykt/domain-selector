@@ -1,9 +1,10 @@
 # Quality gate: runs on every push to main and every pull request.
 #
-#   - typecheck            — `tsc --noEmit`. Catches type errors against the
-#                            generated Prisma client (npm ci's postinstall
-#                            runs `prisma generate` first, so the client is
-#                            fresh — this is what catches stale-enum drift).
+#   - typecheck            — `next typegen && tsc --noEmit`. typegen emits the
+#                            generated route types (RouteContext, PageProps)
+#                            into .next/types so tsc can resolve them without a
+#                            full build. The Prisma client is already fresh from
+#                            npm ci's postinstall (`prisma generate`).
 #   - lint                 — `eslint`. Catches Next.js/React rule violations
 #                            (e.g. <a> vs <Link>, impure render calls).
 #   - verify:scoring       — asserts the framework worked example (82/100)
