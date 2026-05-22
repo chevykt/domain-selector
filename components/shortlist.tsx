@@ -75,7 +75,7 @@ export function Shortlist({
   const router = useRouter();
   const [limit, setLimit] = useState<Limit>(50);
   const [dedupe, setDedupe] = useState(true);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // ID of the row whose detail Sheet is open. null = closed.
   const [openDomainId, setOpenDomainId] = useState<string | null>(null);
@@ -267,7 +267,6 @@ export function Shortlist({
               variant="ghost"
               size="sm"
               onClick={deselectAll}
-              disabled={pending}
             >
               Deselect all
             </Button>
