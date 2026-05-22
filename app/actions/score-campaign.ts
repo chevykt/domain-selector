@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { loadActiveConfig } from "@/lib/config/loader";
 import { BriefSchema } from "@/lib/brief/schema";
 import { scoreDomain } from "@/lib/scoring/engine";
+import { STALE_LOCK_MS } from "@/lib/scoring/constants";
 import type { ScoreInput } from "@/lib/scoring/types";
 import { log } from "@/lib/log";
 
@@ -40,10 +41,20 @@ export async function scoreCampaign(
   campaignId: string
 ): Promise<ScoreCampaignResult> {
   // ---------- 1. Claim the lock ----------
+  // The claim matches EITHER an idle campaign OR a stale in-progress lock —
+  // one left behind by a run that died (function timeout / crash) before its
+  // catch could release it. A live run can't outlast the 60s function cap, so
+  // a SCORING_IN_PROGRESS older than STALE_LOCK_MS is provably dead and safe to
+  // take over. The updateMany is atomic, so concurrent takeovers can't race:
+  // the first bumps updatedAt, the second's stale predicate no longer matches.
+  const staleBefore = new Date(Date.now() - STALE_LOCK_MS);
   const claim = await prisma.campaign.updateMany({
     where: {
       id: campaignId,
-      status: { in: ["INVENTORY_LOADED", "SCORED", "FINALIZED"] },
+      OR: [
+        { status: { in: ["INVENTORY_LOADED", "SCORED", "FINALIZED"] } },
+        { status: "SCORING_IN_PROGRESS", updatedAt: { lt: staleBefore } },
+      ],
     },
     data: { status: "SCORING_IN_PROGRESS" },
   });

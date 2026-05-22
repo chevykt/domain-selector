@@ -9,6 +9,7 @@ import { ScoreButton } from "@/components/score-button";
 import { ScoringInProgress } from "@/components/scoring-in-progress";
 import { Shortlist, type ShortlistRow } from "@/components/shortlist";
 import { ANCHOR_STRATEGY_OPTIONS } from "@/lib/brief/schema";
+import { isScoringLockStale } from "@/lib/scoring/constants";
 import { prisma } from "@/lib/db";
 import { formatNumber } from "@/lib/utils";
 
@@ -117,15 +118,22 @@ export default async function CampaignPage(
     initiallyIncluded: s.domain.selections[0]?.included ?? false,
   }));
 
-  const status = STATUS[campaign.status] ?? {
-    label: campaign.status,
-    tone: "neutral" as const,
-  };
-
   const hasInventory = !!campaign.inventoryUpload;
-  const isScoring = campaign.status === "SCORING_IN_PROGRESS";
+  // A SCORING_IN_PROGRESS lock older than STALE_LOCK_MS is from a run that died
+  // without releasing it (see score-campaign.ts). Treat it as recoverable so the
+  // Score button reappears — re-running scoring atomically takes over the lock.
+  const isStaleLock = isScoringLockStale(campaign.status, campaign.updatedAt);
+  const isScoring =
+    campaign.status === "SCORING_IN_PROGRESS" && !isStaleLock;
   const isScored =
     campaign.status === "SCORED" || campaign.status === "FINALIZED";
+
+  const status = isStaleLock
+    ? { label: "Needs scoring", tone: "neutral" as const }
+    : STATUS[campaign.status] ?? {
+        label: campaign.status,
+        tone: "neutral" as const,
+      };
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
@@ -252,6 +260,13 @@ export default async function CampaignPage(
               description="Runs the deterministic scoring engine against every uploaded domain using the active config. Same brief + same inventory + same config always produces the same shortlist."
             />
             <CardBody>
+              {isStaleLock && (
+                <div className="mb-3 rounded-md border border-border-subtle bg-bg-input/40 px-3 py-2 text-xs text-fg-muted">
+                  The previous scoring run didn&rsquo;t finish (it likely hit the
+                  function time limit) and was cleared. It&rsquo;s safe to run
+                  scoring again — your selections are preserved.
+                </div>
+              )}
               <ScoreButton campaignId={id} label="Run scoring" />
             </CardBody>
           </Card>
