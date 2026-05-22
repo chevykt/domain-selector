@@ -30,8 +30,25 @@ export function ScoreButton({
     setError(null);
     setResult(null);
     startTransition(async () => {
+      // Don't trust the action's response indefinitely. A long or dropped
+      // response (e.g. a slow run, or a connection cut by an intermediary)
+      // would otherwise leave this spinner up forever — even though the server
+      // keeps running the action to completion. After FALLBACK_MS we stop
+      // waiting and refresh to the server's real state: the polling
+      // "Scoring in progress" card if it's still running, or the finished
+      // shortlist if it already completed.
+      const FALLBACK_MS = 12_000;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const fallback = new Promise<"fallback">((resolve) => {
+        timer = setTimeout(() => resolve("fallback"), FALLBACK_MS);
+      });
       try {
-        const r = await scoreCampaign(campaignId);
+        const r = await Promise.race([scoreCampaign(campaignId), fallback]);
+        if (r === "fallback") {
+          // Hand off to the server-rendered state; the run finishes on its own.
+          router.refresh();
+          return;
+        }
         if (r.ok) {
           setResult({
             qualified: r.qualified,
@@ -57,6 +74,8 @@ export function ScoreButton({
         } else {
           setError(msg);
         }
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     });
   }
