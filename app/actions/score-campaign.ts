@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db";
@@ -14,39 +15,33 @@ import { log } from "@/lib/log";
 // that invokes this action). Route-segment config can't be exported from a
 // `"use server"` file — Next.js requires all exports to be async functions.
 
-export type ScoreCampaignResult =
-  | {
-      ok: true;
-      totalDomains: number;
-      qualified: number;
-      disqualified: number;
-      maxScore: number;
-      configVersionNumber: number;
-    }
-  | { ok: false; error: string };
+export type ScoreCampaignResult = { ok: true } | { ok: false; error: string };
 
-// Runs the deterministic scoring engine over every domain in the
-// campaign's inventory upload, persists Score rows, and stamps the
-// campaign with the config version it was scored against (so the same
-// shortlist can be reproduced later).
+// Kicks off a scoring run. This action does the bare minimum synchronously —
+// claim the lock, then return — and hands the heavy work to `after()` so the
+// scoring runs AFTER the response is sent.
+//
+// Why: Next.js freezes the App Router while a Server Action is in flight. If we
+// awaited the full run here (seconds), every router.refresh() — including the
+// "in progress" card's polling — would queue behind it, and the UI couldn't
+// update until a full page reload. Returning immediately keeps the router free;
+// the polling card then flips to the shortlist on its own when scoring lands.
 //
 // Concurrency model:
-//   - First action that arrives flips status SCORED|INVENTORY_LOADED|FINALIZED
-//     → SCORING_IN_PROGRESS via a conditional updateMany (atomic claim).
-//   - Subsequent concurrent invocations see count=0 from the claim and exit
-//     with a friendly error, so the user can't double-score by refreshing.
-//   - On any failure, the catch releases the lock back to INVENTORY_LOADED.
-//   - On success, the final tx.campaign.update sets status to SCORED.
+//   - First caller flips status SCORED|INVENTORY_LOADED|FINALIZED (or a stale
+//     SCORING_IN_PROGRESS) → SCORING_IN_PROGRESS via an atomic updateMany.
+//   - Concurrent callers see count=0 and exit with a friendly error.
+//   - The background run (runScoring) owns the lock: SCORED on success, or
+//     released to INVENTORY_LOADED on failure. A dead run (e.g. a function
+//     timeout) is recovered by the stale-lock takeover in the claim.
 export async function scoreCampaign(
   campaignId: string
 ): Promise<ScoreCampaignResult> {
-  // ---------- 1. Claim the lock ----------
-  // The claim matches EITHER an idle campaign OR a stale in-progress lock —
-  // one left behind by a run that died (function timeout / crash) before its
-  // catch could release it. A live run can't outlast the 60s function cap, so
-  // a SCORING_IN_PROGRESS older than STALE_LOCK_MS is provably dead and safe to
-  // take over. The updateMany is atomic, so concurrent takeovers can't race:
-  // the first bumps updatedAt, the second's stale predicate no longer matches.
+  // ---------- Claim the lock (with stale-lock takeover) ----------
+  // Matches either an idle campaign OR a stale in-progress lock left by a run
+  // that died before releasing it. A live run can't outlast the 60s function
+  // cap, so SCORING_IN_PROGRESS older than STALE_LOCK_MS is provably dead. The
+  // updateMany is atomic, so concurrent takeovers can't race.
   const staleBefore = new Date(Date.now() - STALE_LOCK_MS);
   const claim = await prisma.campaign.updateMany({
     where: {
@@ -59,8 +54,7 @@ export async function scoreCampaign(
     data: { status: "SCORING_IN_PROGRESS" },
   });
   if (claim.count === 0) {
-    // Either the campaign doesn't exist, has no inventory yet, or another
-    // scoring run is already in progress.
+    // Campaign doesn't exist, has no inventory yet, or a fresh run is active.
     const existing = await prisma.campaign.findUnique({
       where: { id: campaignId },
       select: { status: true },
@@ -72,16 +66,29 @@ export async function scoreCampaign(
     if (existing.status === "SCORING_IN_PROGRESS") {
       return {
         ok: false,
-        error: "Scoring is already in progress for this campaign. Refresh in a few seconds.",
+        error:
+          "Scoring is already in progress for this campaign. It updates automatically when finished.",
       };
     }
     return { ok: false, error: `Cannot score from status ${existing.status}.` };
   }
 
-  // Revalidate immediately so the UI flips to the "in progress" card.
-  revalidatePath(`/campaigns/${campaignId}`);
+  // ---------- Hand the heavy work to after() ----------
+  // Runs after this response is flushed; Vercel keeps the invocation alive
+  // (waitUntil) up to the route's maxDuration. runScoring owns the lock from
+  // here and always resolves it, so the campaign can't be left stuck.
+  after(() => runScoring(campaignId));
 
-  // ---------- 2. Run scoring (with lock release on failure) ----------
+  // Flip the UI to the polling "in progress" card and return immediately.
+  revalidatePath(`/campaigns/${campaignId}`);
+  return { ok: true };
+}
+
+// The deterministic scoring run. Not exported, so this "use server" file still
+// only exports async actions. Persists Score rows and stamps the campaign with
+// the config version it was scored against. Selections are preserved across
+// re-scores — they represent user intent, not derived data.
+async function runScoring(campaignId: string): Promise<void> {
   try {
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
@@ -121,7 +128,6 @@ export async function scoreCampaign(
 
     let qualified = 0;
     let disqualified = 0;
-    let maxScoreSeen = 0;
 
     for (const d of domains) {
       const input: ScoreInput = {
@@ -158,12 +164,13 @@ export async function scoreCampaign(
           maxPossible: 0,
           breakdown: {},
           disqualified: true,
-          disqualifierReasons: result.reasons.map((r) => `${r.code}: ${r.message}`),
+          disqualifierReasons: result.reasons.map(
+            (r) => `${r.code}: ${r.message}`
+          ),
           reasoning: result.reasons.map((r) => r.message).join("; "),
         });
       } else {
         qualified++;
-        maxScoreSeen = Math.max(maxScoreSeen, result.maxPossible);
         scoreRows.push({
           campaignId,
           domainId: d.id,
@@ -179,10 +186,7 @@ export async function scoreCampaign(
 
     await prisma.$transaction(
       async (tx) => {
-        // Replace Score rows only. Selections are intentionally preserved
-        // across re-scores — they represent user intent ("I want this
-        // domain in the campaign") and shouldn't vanish just because we
-        // recomputed numbers against a new config version.
+        // Replace Score rows only. Selections are preserved across re-scores.
         await tx.score.deleteMany({ where: { campaignId } });
 
         const CHUNK = 500;
@@ -208,20 +212,9 @@ export async function scoreCampaign(
       { campaignId, qualified, disqualified, configVersion: versionNumber },
       "Scoring complete"
     );
-
-    revalidatePath(`/campaigns/${campaignId}`);
-    revalidatePath(`/campaigns/${campaignId}/excluded`);
-
-    return {
-      ok: true,
-      totalDomains: domains.length,
-      qualified,
-      disqualified,
-      maxScore: maxScoreSeen,
-      configVersionNumber: versionNumber,
-    };
   } catch (err) {
-    // ---------- 3. Release the lock on any failure ----------
+    // Release the lock so the campaign isn't left stuck. (The stale-lock
+    // takeover in scoreCampaign is the backstop if even this release fails.)
     log.error({ campaignId, err }, "Scoring failed — releasing lock");
     await prisma.campaign
       .updateMany({
@@ -234,10 +227,5 @@ export async function scoreCampaign(
           "Failed to release SCORING_IN_PROGRESS lock"
         );
       });
-    revalidatePath(`/campaigns/${campaignId}`);
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Scoring failed",
-    };
   }
 }
